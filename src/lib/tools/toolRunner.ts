@@ -25,6 +25,7 @@ import { capShellToolOutput } from "./shellOutputSpill";
 import { runLspAgentTool } from "../lsp/lspAgentBridge";
 import { normalizeToolArguments } from "../agent/textToolCalls";
 import { applyStrReplace } from "./strReplace";
+import { isNetworkAgentTool } from "../webAccess";
 import type { ChatMode } from "../stores/mode";
 
 export interface ToolExecutionContext {
@@ -39,6 +40,12 @@ export interface ToolExecutionContext {
   onNetworkRetryExhausted?: (message: string) => void;
   /** When true, mutation tools are blocked (workspace opened read-only). */
   readOnly?: boolean;
+  /**
+   * When false, network tools (`web_fetch`) are blocked at execution regardless
+   * of tool policy — the hard boundary behind the status-bar web-access toggle.
+   * Undefined means "not gated" (web access allowed).
+   */
+  webAccessEnabled?: boolean;
   lspToolTimeout?: number;
   lspWorkspaceSymbolTimeout?: number;
   /** Apply a Plan/Agent mode switch after user approval. */
@@ -563,6 +570,12 @@ export async function executeTool(
 
   if (context?.readOnly && WRITE_TOOLS.has(name)) {
     return fail("Error: read_only_mode — This workspace is open read-only in this window.");
+  }
+
+  if (context?.webAccessEnabled === false && isNetworkAgentTool(name)) {
+    return fail(
+      "Error: web_access_disabled — Web access is off for this session. Enable it with the globe toggle in the status bar to allow web_fetch."
+    );
   }
 
   const wsCheck = requireWorkspacePath(workspacePath);

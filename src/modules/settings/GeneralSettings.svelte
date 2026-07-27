@@ -25,6 +25,7 @@
 
   const initial = get(settings);
   let editorWordWrap = $state(initial.editor.wordWrap);
+  let editorMinimap = $state(initial.editor.minimap);
   let editorFormatOnSave = $state(initial.editor.formatOnSave);
   let editorUniformTabWidth = $state(initial.editor.uniformTabWidth);
   let editorUniformTabWidthPx = $state(initial.editor.uniformTabWidthPx);
@@ -51,6 +52,14 @@
       onchange={() => settings.setEditorSettings({ wordWrap: editorWordWrap })}
     />
     <span class="name">Wrap lines</span>
+  </label>
+  <label class="field checkbox-field">
+    <input
+      type="checkbox"
+      bind:checked={editorMinimap}
+      onchange={() => settings.setEditorSettings({ minimap: editorMinimap })}
+    />
+    <span class="name">Show minimap</span>
   </label>
   <label class="field checkbox-field">
     <input

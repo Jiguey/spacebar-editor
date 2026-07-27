@@ -1,7 +1,7 @@
 {
   "name": "spacebar-editor",
   "private": true,
-  "version": "0.1.18",
+  "version": "0.1.20",
   "packageManager": "pnpm@10.33.4",
   "type": "module",
   "scripts": {
@@ -78,6 +78,7 @@
     "@codemirror/view": "^6.34.0",
     "@lezer/highlight": "^1.2.3",
     "@lucide/svelte": "^1.16.0",
+    "@replit/codemirror-minimap": "^0.5.2",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.0.0",

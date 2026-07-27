@@ -2,6 +2,7 @@ import { get } from "svelte/store";
 import { chat, type ChatSession } from "./stores/chat";
 import { files } from "./stores/files";
 import { workbench, type WorkbenchTab } from "./stores/workbench";
+import { bottomTerminals } from "./stores/bottomTerminals";
 import { normalizeFilePath } from "./fsPath";
 import {
   readFile,
@@ -32,6 +33,8 @@ export type PersistedProjectState = {
     tabs: Array<Extract<WorkbenchTab, { kind: "editor" }>>;
     activeTabId: string | null;
   };
+  /** User bottom-panel terminals; re-opened with fresh PTYs on load. */
+  terminals: Array<{ title: string }>;
 };
 
 /** In-browser dev: per-folder snapshots when Tauri is unavailable. */
@@ -69,6 +72,7 @@ export function buildProjectStateSnapshot(workspacePath: string): PersistedProje
       tabs: editorTabs,
       activeTabId,
     },
+    terminals: bottomTerminals.persistableTabs(),
   };
 }
 
@@ -87,6 +91,7 @@ function defaultProjectState(): PersistedProjectState {
       activeSessionId: session.id,
     },
     workbench: { tabs: [], activeTabId: null },
+    terminals: [],
   };
 }
 
@@ -133,6 +138,11 @@ function sanitizeLoadedState(
       activeSessionId,
     },
     workbench: { tabs, activeTabId },
+    terminals: Array.isArray(state.terminals)
+      ? state.terminals.filter(
+          (t): t is { title: string } => !!t && typeof t.title === "string"
+        )
+      : [],
   };
 }
 
@@ -204,18 +214,25 @@ export function initProjectStateAutosave(): void {
 async function teardownWorkspaceUi(): Promise<void> {
   workbench.closeAllTabs();
   files.clearOpenFiles();
+  // Close the previous project's terminals so they don't leak into the next one.
+  bottomTerminals.closeAll();
   if (activeWorkspace) {
     const { stopLspForWorkspace } = await import("./lsp/lspStore");
     stopLspForWorkspace(activeWorkspace);
   }
 }
 
-async function applyLoadedState(state: PersistedProjectState): Promise<void> {
+async function applyLoadedState(
+  state: PersistedProjectState,
+  workspacePath: string
+): Promise<void> {
   chat.replaceProjectState(state.chat);
   workbench.replaceProjectState(state.workbench);
 
   if (isTauriAvailable()) {
     await workbench.hydrateEditorTabs((path) => readFile(null, path));
+    // teardownWorkspaceUi() already cleared terminals; re-open this project's.
+    await bottomTerminals.restore(state.terminals, normalizeFilePath(workspacePath));
   }
 }
 
@@ -253,7 +270,7 @@ export async function switchProjectWorkspace(path: string): Promise<void> {
   await loadWorkspaceTree(normalized);
 
   const state = await loadStateFromDisk(normalized);
-  await applyLoadedState(state);
+  await applyLoadedState(state, normalized);
 
   activeWorkspace = normalized;
 

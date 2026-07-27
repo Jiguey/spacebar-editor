@@ -65,7 +65,7 @@
     contextOptionsUpTo,
   } from "$lib/ollamaClient";
   import { onMount, onDestroy } from "svelte";
-  import { floatingPanel, portal } from "$lib/actions/floatingPanel";
+  import { portal } from "$lib/actions/floatingPanel";
   import { isTauriAvailable } from "$lib/ipc";
   import { workspaceReadOnly } from "$lib/workspace";
   import {
@@ -169,12 +169,13 @@ import {
   } from "$lib/providerBalance";
   import AppIcon from "$lib/components/AppIcon.svelte";
   import ChatContextFooter from "./ChatContextFooter.svelte";
+  import ChatModelMenu from "./ChatModelMenu.svelte";
+  import "./modelPopup.css";
 
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import MessageCircle from "@lucide/svelte/icons/message-circle";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import Bot from "@lucide/svelte/icons/bot";
-  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Settings from "@lucide/svelte/icons/settings";
 
   interface Props {
@@ -402,7 +403,6 @@ import {
 
   let modelMenuOpen = $state(false);
   let modelMenuAnchorEl: HTMLDivElement | undefined = $state();
-  let modelMenuPopupEl: HTMLDivElement | undefined = $state();
   let modeMenuOpen = $state(false);
   let modeMenuAnchorEl: HTMLDivElement | undefined = $state();
   let contextBudgetMenuOpen = $state(false);
@@ -1152,14 +1152,6 @@ import {
 
   function onDocPointerDown(e: PointerEvent) {
     const t = e.target as Node;
-    if (
-      modelMenuOpen &&
-      modelMenuAnchorEl &&
-      !modelMenuAnchorEl.contains(t) &&
-      (!modelMenuPopupEl || !modelMenuPopupEl.contains(t))
-    ) {
-      modelMenuOpen = false;
-    }
     if (modeMenuOpen && modeMenuAnchorEl && !modeMenuAnchorEl.contains(t)) {
       modeMenuOpen = false;
     }
@@ -1742,6 +1734,7 @@ import {
       readFileMaxLines,
       onNetworkRetryExhausted: (msg) => toast.error(msg, { duration: 5000 }),
       readOnly: get(workspaceReadOnly),
+      webAccessEnabled,
       lspToolTimeout: st.agentLimits.lspToolTimeout,
       lspWorkspaceSymbolTimeout: st.agentLimits.lspWorkspaceSymbolTimeout,
       onSwitchMode: (mode) => currentMode.setMode(mode),
@@ -3248,179 +3241,32 @@ import {
             <ChevronDown size={12} strokeWidth={1.75} aria-hidden="true" />
           </button>
           {#if modelMenuOpen}
-            <div
-              class="model-popup"
-              role="listbox"
-              aria-label="Choose model"
-              bind:this={modelMenuPopupEl}
-              use:portal
-              use:floatingPanel={{ getAnchor: () => modelMenuAnchorEl }}
-            >
-              <div class="model-popup-section">
-                <div class="model-popup-section-head">
-                  <span>Ollama</span>
-                  <div class="model-popup-actions">
-                    <button
-                      type="button"
-                      class="model-popup-action-btn"
-                      onclick={() => refreshOllamaModelsFromHost()}
-                      title="Refresh Ollama models"
-                      aria-label="Refresh Ollama models"
-                    >
-                      <RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      class="model-popup-action-btn"
-                      onclick={() => {
-                        modelMenuOpen = false;
-                        onOpenSettings?.();
-                      }}
-                      title="Provider settings"
-                      aria-label="Provider settings"
-                    >
-                      <Settings size={14} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-                {#if showOllamaInModelMenu && ollamaMenuRows.length > 0}
-                  {#each ollamaMenuRows as row (row.id)}
-                    <button
-                      type="button"
-                      role="option"
-                      class="model-popup-option"
-                      class:model-popup-option--current={$settings.chatBackend === "ollama" &&
-                        $settings.selectedModel === row.id}
-                      aria-selected={$settings.chatBackend === "ollama" && $settings.selectedModel === row.id}
-                      onclick={() => pickOllamaModel(row.id)}
-                    >
-                      {row.name}
-                    </button>
-                  {/each}
-                {:else}
-                  <span class="model-popup-unavailable">No models available</span>
-                {/if}
-              </div>
-              <div class="model-popup-section">
-                <div class="model-popup-section-head">
-                  <span>llama.cpp</span>
-                </div>
-                {#if $settings.llamacppModels.length > 0}
-                  {#each $settings.llamacppModels as row (row.id)}
-                    <button
-                      type="button"
-                      role="option"
-                      class="model-popup-option"
-                      class:model-popup-option--current={$settings.chatBackend === "llamacpp" &&
-                        $settings.selectedModel === row.id}
-                      aria-selected={$settings.chatBackend === "llamacpp" && $settings.selectedModel === row.id}
-                      onclick={() => pickLlamacppModelRow(row.id)}
-                    >
-                      {row.name}
-                    </button>
-                  {/each}
-                {:else}
-                  <span class="model-popup-unavailable">No models available</span>
-                {/if}
-              </div>
-              <div class="model-popup-section">
-                <div class="model-popup-section-head">
-                  <span>Anthropic</span>
-                </div>
-                {#if showAnthropicInModelMenu && anthropicMenuRows.length > 0}
-                  {#each anthropicMenuRows as row (row.id)}
-                    <button
-                      type="button"
-                      role="option"
-                      class="model-popup-option"
-                      class:model-popup-option--current={$settings.chatBackend === "anthropic" &&
-                        $settings.selectedModel === row.id}
-                      aria-selected={$settings.chatBackend === "anthropic" && $settings.selectedModel === row.id}
-                      onclick={() => pickAnthropicModelRow(row.id)}
-                    >
-                      {row.name}
-                    </button>
-                  {/each}
-                {:else}
-                  <span class="model-popup-unavailable">No models available</span>
-                {/if}
-              </div>
-              <div class="model-popup-section">
-                <div class="model-popup-section-head">
-                  <span>DeepSeek</span>
-                </div>
-                {#if showDeepseekInModelMenu && deepseekMenuRows.length > 0}
-                  {#each deepseekMenuRows as row (row.id)}
-                    <button
-                      type="button"
-                      role="option"
-                      class="model-popup-option"
-                      class:model-popup-option--current={$settings.chatBackend === "deepseek" &&
-                        $settings.selectedModel === row.id}
-                      aria-selected={$settings.chatBackend === "deepseek" && $settings.selectedModel === row.id}
-                      onclick={() => pickDeepseekModelRow(row.id)}
-                    >
-                      {row.name}
-                    </button>
-                  {/each}
-                {:else}
-                  <span class="model-popup-unavailable">No models available</span>
-                {/if}
-              </div>
-              <div class="model-popup-section">
-                <div class="model-popup-section-head">
-                  <span>GLM</span>
-                </div>
-                {#if showGlmInModelMenu && glmMenuRows.length > 0}
-                  {#each glmMenuRows as row (row.id)}
-                    <button
-                      type="button"
-                      role="option"
-                      class="model-popup-option"
-                      class:model-popup-option--current={$settings.chatBackend === "glm" &&
-                        $settings.selectedModel === row.id}
-                      aria-selected={$settings.chatBackend === "glm" && $settings.selectedModel === row.id}
-                      onclick={() => pickGlmModelRow(row.id)}
-                    >
-                      {row.name}
-                    </button>
-                  {/each}
-                {:else}
-                  <span class="model-popup-unavailable">No models available</span>
-                {/if}
-              </div>
-              <div class="model-popup-section">
-                <div class="model-popup-section-head">
-                  <span>Kimi</span>
-                </div>
-                {#if showKimiInModelMenu && kimiMenuRows.length > 0}
-                  {#each kimiMenuRows as row (row.id)}
-                    <button
-                      type="button"
-                      role="option"
-                      class="model-popup-option"
-                      class:model-popup-option--current={$settings.chatBackend === "kimi" &&
-                        $settings.selectedModel === row.id}
-                      aria-selected={$settings.chatBackend === "kimi" && $settings.selectedModel === row.id}
-                      onclick={() => pickKimiModelRow(row.id)}
-                    >
-                      {row.name}
-                    </button>
-                  {/each}
-                {:else}
-                  <span class="model-popup-unavailable">No models available</span>
-                {/if}
-              </div>
-              {#if lastTokPerSec != null && lastTokPerSec > 0}
-                <p class="model-popup-foot">
-                  Last reply · {lastTokPerSec >= 100
-                    ? Math.round(lastTokPerSec)
-                    : lastTokPerSec >= 10
-                      ? lastTokPerSec.toFixed(1)
-                      : lastTokPerSec.toFixed(2)} tok/s
-                </p>
-              {/if}
-            </div>
+            <ChatModelMenu
+              getAnchor={() => modelMenuAnchorEl}
+              chatBackend={$settings.chatBackend}
+              selectedModel={$settings.selectedModel}
+              ollamaRows={ollamaMenuRows}
+              llamacppRows={$settings.llamacppModels}
+              anthropicRows={anthropicMenuRows}
+              deepseekRows={deepseekMenuRows}
+              glmRows={glmMenuRows}
+              kimiRows={kimiMenuRows}
+              showOllama={showOllamaInModelMenu}
+              showAnthropic={showAnthropicInModelMenu}
+              showDeepseek={showDeepseekInModelMenu}
+              showGlm={showGlmInModelMenu}
+              showKimi={showKimiInModelMenu}
+              {lastTokPerSec}
+              onClose={() => (modelMenuOpen = false)}
+              onRefreshOllama={() => refreshOllamaModelsFromHost()}
+              {onOpenSettings}
+              onPickOllama={pickOllamaModel}
+              onPickLlamacpp={pickLlamacppModelRow}
+              onPickAnthropic={pickAnthropicModelRow}
+              onPickDeepseek={pickDeepseekModelRow}
+              onPickGlm={pickGlmModelRow}
+              onPickKimi={pickKimiModelRow}
+            />
           {/if}
         </div>
         <span class="composer-toolbar-spacer"></span>
@@ -4744,122 +4590,6 @@ import {
     color: var(--muted-foreground);
     --workbench-icon-btn-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
     --workbench-icon-btn-bg-active: color-mix(in srgb, var(--foreground) 14%, transparent);
-  }
-
-  .model-popup {
-    min-width: 220px;
-    width: max(260px, 12rem);
-    max-width: min(96vw, 360px);
-    max-height: min(56vh, 360px);
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 4px 0;
-    /* Opaque background so translucent themes (e.g. Dark Dracula) don't show through.
-       Editable via Settings → Appearance → Chat → Model picker popup. */
-    background: var(--chat-model-popup-bg, #252526);
-    border: 1px solid #3c3c3c;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  }
-
-  .model-popup-section {
-    padding: 2px 0 0;
-  }
-
-  .model-popup-section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px 4px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #888;
-  }
-
-  .model-popup-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .model-popup-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: #3794ff;
-    cursor: pointer;
-  }
-
-  .model-popup-action-btn:hover {
-    background: rgba(55, 148, 255, 0.12);
-    color: #5cb3ff;
-  }
-
-  .model-popup-action-btn :global(svg) {
-    width: 12px;
-    height: 12px;
-  }
-
-  .model-popup-option {
-    display: block;
-    width: 100%;
-    padding: 6px 12px;
-    border: none;
-    background: transparent;
-    color: #d4d4d4;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .model-popup-option:hover {
-    background: #2a2d2e;
-  }
-
-  .model-popup-option--current {
-    background: #1a3a52;
-    color: #e0e0e0;
-  }
-
-  .model-popup-empty {
-    margin: 0;
-    padding: 6px 12px 4px;
-    font-size: 12px;
-    color: #b0b0b0;
-    line-height: 1.45;
-  }
-
-  .model-popup-empty .inline-code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
-    background: #1e1e1e;
-    padding: 1px 5px;
-    border-radius: 4px;
-  }
-
-  .model-popup-foot {
-    margin: 0;
-    padding: 6px 12px 4px;
-    font-size: 10px;
-    color: #858585;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .model-popup-unavailable {
-    display: block;
-    padding: 4px 12px 6px;
-    font-size: 11px;
-    color: #5a5a5a;
-    font-style: italic;
   }
 
 

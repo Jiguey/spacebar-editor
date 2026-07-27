@@ -146,6 +146,24 @@ function createBottomTerminalsStore() {
       state.set({ tabs: [], activeTabId: null, userCounter: 0 });
     },
 
+    /** Interactive user terminals worth persisting per project (have a live PTY). */
+    persistableTabs(): { title: string }[] {
+      return get(state)
+        .tabs.filter((t) => t.source === "user" && t.sessionId)
+        .map((t) => ({ title: t.title }));
+    },
+
+    /**
+     * Re-open a project's saved user terminals with fresh PTYs at `cwd`.
+     * Call after `closeAll()`; PTY scrollback/processes are not restored.
+     */
+    async restore(tabs: { title: string }[], cwd: string | null): Promise<void> {
+      if (!isTauriAvailable()) return;
+      for (const t of tabs) {
+        await this.createTab({ title: t.title, source: "user", cwd });
+      }
+    },
+
     /** @internal tests */
     resetForTests() {
       state.set({ tabs: [], activeTabId: null, userCounter: 0 });

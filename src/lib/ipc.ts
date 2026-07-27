@@ -108,6 +108,16 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
   return invoke<PlatformInfo>("get_platform_info");
 }
 
+/**
+ * Reveal a path in the OS file manager. `reveal: true` highlights the item
+ * (Finder "Reveal", Explorer `/select`); `reveal: false` opens it directly
+ * (a folder opens in the file manager).
+ */
+export async function revealInOs(path: string, reveal: boolean): Promise<void> {
+  await ensureTauriApi();
+  await invoke<void>("reveal_in_os", { path, reveal });
+}
+
 /** Open http(s), mailto, etc. in the system handler (Tauri shell or browser). */
 export async function openExternalUrl(url: string): Promise<void> {
   if (isTauri) {

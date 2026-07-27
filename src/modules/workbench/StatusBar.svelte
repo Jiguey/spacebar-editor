@@ -7,6 +7,7 @@
   import { gitCurrentBranch, gitStatus, isTauriAvailable } from "$lib/ipc";
   import AppIcon from "$lib/components/AppIcon.svelte";
   import SidebarIcon from "phosphor-svelte/lib/SidebarIcon";
+  import SidebarSimpleIcon from "phosphor-svelte/lib/SidebarSimpleIcon";
   import RowsIcon from "phosphor-svelte/lib/RowsIcon";
   import AppWindowIcon from "phosphor-svelte/lib/AppWindowIcon";
   import { chat, activeSession } from "$lib/stores/chat";
@@ -160,7 +161,7 @@
       title="Toggle explorer panel"
       onclick={() => onToggleRight?.()}
     >
-      <SidebarIcon size={18} mirrored aria-hidden="true" />
+      <SidebarSimpleIcon size={18} mirrored aria-hidden="true" />
     </button>
   </div>
   <span class="status-sep status-sep--actions" aria-hidden="true"></span>

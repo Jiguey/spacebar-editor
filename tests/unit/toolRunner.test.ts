@@ -75,6 +75,35 @@ describe("toolRunner", () => {
       });
     });
 
+    describe("web access enforcement", () => {
+      it("blocks web_fetch at execution when web access is disabled", async () => {
+        const result = await executeTool(
+          "web_fetch",
+          { url: "https://example.com" },
+          workspacePath,
+          { webAccessEnabled: false }
+        );
+        expect(result.success).toBe(false);
+        expect(result.output).toContain("web_access_disabled");
+      });
+
+      it("does not block non-network tools when web access is disabled", async () => {
+        mockReadFileRanged.mockResolvedValue({
+          content: "ok",
+          start_line: 1,
+          end_line: 1,
+          total_lines: 1,
+        });
+        const result = await executeTool(
+          "read_file",
+          { path: "src/file.ts" },
+          workspacePath,
+          { webAccessEnabled: false }
+        );
+        expect(result.success).toBe(true);
+      });
+    });
+
     describe("error formatting", () => {
       it("includes string rejections from invoke", async () => {
         mockReadFileRanged.mockRejectedValue("permission denied");

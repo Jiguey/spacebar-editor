@@ -21,7 +21,25 @@
 | **v0.1.12** | Shipped (CI failed) | ⚠️ Superseded by v0.1.13 | Stability program specs 49–52 landed, but the tag's release build failed on all platforms (`pnpm-lock.yaml` missing the new `@xterm/addon-webgl` entry) |
 | **v0.1.13** | Shipped | ✅ **Shipped** | Fixed the v0.1.12 lockfile gap; stability program (specs 49–52) released |
 | **v0.1.14** | Shipped | ✅ **Shipped** | Restored the v0.1.7–v0.1.10 feature set after a working-tree revert removed it in error; renamed `dracula-experimental` → `dark-dracula`; onboarding wizard theme step now offers Dark Dracula / Dark Bubblegum / Spacebar; fixed a duplicate `$effect` in `TerminalPane.svelte` left over from the revert/merge |
-| **v0.1.15** | Next | 📋 Planned | Trust boundary hardening — [45](45-security-hardening-and-capability-expansion.md) (narrow-only tool policy §2.2, remaining P0 enforcement audits) |
+| **v0.1.15–v0.1.18** | Shipped | ✅ **Shipped** | Iterative fixes and polish; current release is **v0.1.18** |
+| **v1.0.0** | Next | 🎯 **In progress** | Locked scope — see **v1.0.0 Scope** below. Trust-boundary hardening ([45](45-security-hardening-and-capability-expansion.md)) largely landed: narrow-only tool policy §2.2 ✅, web-access execution-layer block §4.7 ✅ |
+
+---
+
+## v1.0.0 Scope (locked)
+
+> Per product decision (2026-07-24), **only** the items below block v1.0.0. Every other roadmap item — regardless of the phase tables further down — is deferred to **post-v1.0.0**.
+
+| Item | Spec | Status |
+|------|------|--------|
+| **Tool-policy narrow-only** (project files may only tighten, never widen) | [45](45-security-hardening-and-capability-expansion.md) §2.2 | ✅ **Done** — `mergeProjectToolRules` enforces `strictestToolRule`; widening attempts recorded in `ignoredPolicyWidening` and surfaced as a warning (`stores/toolPolicy.ts`) |
+| **Web-access enforcement gap** (hard boundary, not just schema filtering) | [45](45-security-hardening-and-capability-expansion.md) §4.7 | ✅ **Execution block done** — `executeTool` blocks `web_fetch` when `webAccessEnabled === false` (`toolRunner.ts`), wired from `ChatPane.svelte`. Minor residual: text-fallback `buildToolUseInstruction` still advertises `web_fetch` in its tool list even when off (cosmetic now that execution is blocked) |
+| **Distinct right-pane toggle icon** (was a mirror of the left toggle) | — | ✅ **Done** — right/explorer toggle now uses Phosphor `SidebarSimpleIcon`; left/chat toggle keeps `SidebarIcon` (`StatusBar.svelte`) |
+| **Editor minimap** (zoomed-out overview beside the scrollbar, occurrence highlights) | — (new) | ✅ **Done** — `@replit/codemirror-minimap` wired as a toggleable Compartment in `EditorSurface.svelte` (`editor/minimap.ts`); Settings → General "Show minimap" (default on). Selection-match highlighting already exists in the editor body |
+| **Explorer folder/file context menus** | — (new) | ✅ **Done** — full right-click menus (New file/folder, Rename, Reveal in Finder / Open folder, Copy path, Delete) backed by the `reveal_in_os` Rust command |
+| **Per-project session restore** (chats, files, terminals) | — (new) | ✅ **Done** — chats/editor tabs already restored per project; terminals now cleared on switch and re-opened from `.sidebar/state.json` (`projectState.ts`, `bottomTerminals.restore`) so a project never inherits the previous one's terminals |
+
+> **Everything below this line is post-v1.0.0.** The phase tables are retained for status detail but are not v1.0.0 gates.
 
 ---
 
@@ -73,8 +91,8 @@
 | Shortcut rebinding | ✅ Done | [37-shortcut-rebinding.md](37-shortcut-rebinding.md) |
 | Agent turn undo | ✅ Done | "↩ Undo last turn" button — git checkpoint restore |
 | **Workspace trust gate** | ✅ Done (v0.1.6) | [45](45-security-hardening-and-capability-expansion.md) §2.1 — `workspaceTrust.ts` + `WorkspaceTrustDialog.svelte`; restricted mode skips loading project skills/prompts/tool-policy overrides (`projectState.ts`); "Restricted" status-bar pill. No re-prompt yet if `.sidebar/` content changes after trust is granted (§2.1 item 4) |
-| **Tool policy narrow-only (project)** | ❌ Planned (v0.1.6) | [45](45-security-hardening-and-capability-expansion.md) §2.2 — confirmed bug in `mergeProjectToolsLayer` |
-| **Web access globe toggle** | 🔶 Partial (v0.1.6) | [45](45-security-hardening-and-capability-expansion.md) §4.7 — status-bar toggle shipped and removes `web_fetch` from the native tool-call schema when off (`webAccess.ts`, `ChatPane.svelte`); **not** enforced in `toolRunner.ts` execution, and text-fallback tool-call mode still lists `web_fetch` as allowed regardless of the toggle |
+| **Tool policy narrow-only (project)** | ✅ Done | [45](45-security-hardening-and-capability-expansion.md) §2.2 — `mergeProjectToolRules` uses `strictestToolRule`; widening attempts ignored + surfaced as a warning |
+| **Web access globe toggle** | ✅ Done | [45](45-security-hardening-and-capability-expansion.md) §4.7 — status-bar toggle removes `web_fetch` from the native tool-call schema (`webAccess.ts`, `ChatPane.svelte`) **and** `toolRunner.ts` now hard-blocks `web_fetch` execution when the toggle is off. Residual: text-fallback tool-call mode still lists `web_fetch` in its instruction text (cosmetic — execution is blocked regardless) |
 | **Patch-style edit tool (`str_replace`)** | ✅ Done (v0.1.6) | [45](45-security-hardening-and-capability-expansion.md) §4.1 — pure `strReplace.ts` + approval preview |
 | **MLX provider** (Apple Silicon) | ❌ Planned | `mlx_lm.server` OpenAI-compat backend — [42](42-mlx-provider.md) |
 | **Context compaction** | ✅ Done | [21-context-compaction.md](21-context-compaction.md) — enabled by default at 85% |
@@ -189,6 +207,7 @@
 
 | Date | Item |
 |------|------|
+| 2026-07-24 | **v1.0.0 scope lock** — pre-1.0 reduced to: tool-policy narrow-only (done), web-access execution-layer block (done), distinct right-pane toggle icon (done), editor minimap (planned). All other items deferred to post-v1.0.0. Web-access `web_fetch` now hard-blocked at execution in `toolRunner.ts`; right-pane toggle uses `SidebarSimpleIcon`. |
 | 2026-07-16 | **v0.1.11 regression audit** — full diff of v0.1.14 against the v0.1.11 tag confirmed zero deleted files/features; found and fixed one merge artifact (duplicate `$effect` in `TerminalPane.svelte`, harmless double re-fit on pane activation) |
 | 2026-07-16 | **Feature restoration** — a v0.1.6 working-tree revert briefly dropped `str_replace`, bundled skills, CLI launch args, Homebrew packaging, and the onboarding wizard; all five restored on top of the stability program (specs 49–52). `dracula-experimental` renamed to `dark-dracula`. |
 | 2026-07-16 | **Stability program (49–52)** — terminal WebGL renderer + font-ready gating + mounted panes, `overflow: clip` scroll containment, sticky chat auto-scroll, streaming render throttle, crash-restore of workspace, agent caps raised to 100 steps / 300 tool calls |

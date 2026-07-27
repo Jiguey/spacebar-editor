@@ -80,4 +80,19 @@ describe("bottomTerminals", () => {
     expect(state.tabs).toHaveLength(1);
     expect(state.tabs[0]?.title).toBe("second");
   });
+
+  it("persists only interactive user tabs (not agent output tabs)", async () => {
+    await bottomTerminals.createTab({ source: "user" });
+    bottomTerminals.createOutputTab({ source: "agent", title: "agent", output: "$ x\n" });
+
+    expect(bottomTerminals.persistableTabs()).toEqual([{ title: "Terminal" }]);
+  });
+
+  it("restores saved user tabs with fresh PTYs at the given cwd", async () => {
+    await bottomTerminals.restore([{ title: "Terminal" }, { title: "Terminal 2" }], "/proj");
+
+    const state = get({ subscribe: bottomTerminals.subscribe });
+    expect(state.tabs.map((t) => t.title)).toEqual(["Terminal", "Terminal 2"]);
+    expect(vi.mocked(ptyCreate)).toHaveBeenCalledWith("/proj");
+  });
 });

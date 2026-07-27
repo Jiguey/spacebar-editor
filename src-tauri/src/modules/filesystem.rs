@@ -105,6 +105,17 @@ const ALWAYS_EXCLUDE: &[&str] = &[
 /// negation, nested ignore files) plus our always-exclude overrides. Hidden
 /// dotfiles are shown so users can see `.sidebar`, `.env`, etc. in the explorer.
 fn ignore_walk_builder(root: &Path) -> WalkBuilder {
+    walk_builder(root, true)
+}
+
+/// Like `ignore_walk_builder` but without `.gitignore` filtering, so the
+/// explorer shows gitignored files (`.env`, logs, …) that exist on disk.
+/// `ALWAYS_EXCLUDE` still applies.
+fn explorer_walk_builder(root: &Path) -> WalkBuilder {
+    walk_builder(root, false)
+}
+
+fn walk_builder(root: &Path, respect_gitignore: bool) -> WalkBuilder {
     let mut overrides = OverrideBuilder::new(root);
     for name in ALWAYS_EXCLUDE {
         // `!pattern` in an override means "exclude this".
@@ -114,10 +125,10 @@ fn ignore_walk_builder(root: &Path) -> WalkBuilder {
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(false)
-        .git_ignore(true)
-        .git_global(true)
-        .git_exclude(true)
-        .parents(true)
+        .git_ignore(respect_gitignore)
+        .git_global(respect_gitignore)
+        .git_exclude(respect_gitignore)
+        .parents(respect_gitignore)
         .follow_links(false);
     if let Ok(ov) = overrides.build() {
         builder.overrides(ov);
@@ -136,11 +147,11 @@ pub fn list_directory(path: &str) -> Result<Vec<FileEntry>, String> {
         return Err(format!("Path is not a directory: {}", path.display()));
     }
 
-    // Start the walk at `path` (with `parents(true)`) so ancestor `.gitignore`
-    // rules still apply, but limit to direct children for a single-level listing.
+    // Single-level listing that backs the explorer: show everything on disk
+    // (including gitignored files like `.env`) except ALWAYS_EXCLUDE dirs.
     let mut entries: Vec<FileEntry> = Vec::new();
 
-    for result in ignore_walk_builder(path).max_depth(Some(1)).build() {
+    for result in explorer_walk_builder(path).max_depth(Some(1)).build() {
         let Ok(entry) = result else { continue };
         let entry_path = entry.path();
         // depth 0 is `path` itself.
@@ -535,6 +546,25 @@ mod write_tests {
             "expected src-tauri dir in {:?}",
             entries.iter().map(|e| &e.name).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn list_directory_shows_gitignored_files_but_not_always_excluded_dirs() {
+        let base = std::env::temp_dir().join(format!(
+            "tl_lsdir_test_{}_{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(base.join("node_modules")).unwrap();
+        fs::write(base.join(".gitignore"), ".env\n").unwrap();
+        fs::write(base.join(".env"), "KEY=1\n").unwrap();
+
+        let entries = list_directory(&base.to_string_lossy()).expect("list temp dir");
+        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&".env"), "gitignored .env should be listed: {names:?}");
+        assert!(!names.contains(&"node_modules"), "node_modules must stay hidden: {names:?}");
+
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]

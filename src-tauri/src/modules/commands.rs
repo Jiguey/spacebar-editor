@@ -86,6 +86,59 @@ pub fn path_exists(workspace_root: Option<String>, path: String) -> Result<bool,
     path_exists_inner(&safe)
 }
 
+/// Reveal a path in the OS file manager. When `reveal` is true the item is
+/// selected/highlighted (e.g. Finder "Reveal"); when false the path is opened
+/// directly (a folder opens in the file manager). Not workspace-restricted —
+/// this is a user-initiated action on paths already shown in the explorer.
+#[tauri::command]
+pub fn reveal_in_os(path: String, reveal: bool) -> Result<(), String> {
+    if !Path::new(&path).exists() {
+        return Err(format!("Path does not exist: {path}"));
+    }
+
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = Command::new("open");
+        if reveal {
+            c.arg("-R");
+        }
+        c.arg(&path);
+        c
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = Command::new("explorer");
+        if reveal {
+            // explorer parses `/select,PATH` as one token.
+            c.arg(format!("/select,{path}"));
+        } else {
+            c.arg(&path);
+        }
+        c
+    };
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut cmd = {
+        // No portable "select" on Linux; open the containing folder for reveal.
+        let target = if reveal {
+            Path::new(&path)
+                .parent()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.clone())
+        } else {
+            path.clone()
+        };
+        let mut c = Command::new("xdg-open");
+        c.arg(target);
+        c
+    };
+
+    cmd.spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open path: {e}"))
+}
+
 #[tauri::command]
 pub fn find_files(
     workspace_path: String,

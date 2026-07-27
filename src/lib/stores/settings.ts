@@ -82,6 +82,8 @@ export type ChatBackend = "anthropic" | "deepseek" | "glm" | "kimi" | "ollama" |
 
 export type EditorSettings = {
   wordWrap: boolean;
+  /** Show the zoomed-out minimap beside the editor scrollbar. */
+  minimap: boolean;
   formatOnSave: boolean;
   /** When true, chat and workbench header tabs share a fixed width. */
   uniformTabWidth: boolean;
@@ -91,6 +93,7 @@ export type EditorSettings = {
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   wordWrap: true,
+  minimap: true,
   formatOnSave: true,
   uniformTabWidth: false,
   uniformTabWidthPx: normalizeUniformTabWidthPx(undefined),
@@ -99,6 +102,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
 function normalizeEditorSettings(parsed: Partial<EditorSettings> | undefined): EditorSettings {
   return {
     wordWrap: parsed?.wordWrap !== false,
+    minimap: parsed?.minimap !== false,
     formatOnSave: parsed?.formatOnSave !== false,
     uniformTabWidth: parsed?.uniformTabWidth === true,
     uniformTabWidthPx: normalizeUniformTabWidthPx(parsed?.uniformTabWidthPx),

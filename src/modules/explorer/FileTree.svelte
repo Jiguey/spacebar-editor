@@ -14,6 +14,7 @@
     listenFsChanged,
     writeFile,
     createDir,
+    revealInOs,
   } from "$lib/ipc";
   import { refreshDirectoryInTree } from "$lib/filesystemSync";
   import {
@@ -155,8 +156,9 @@
   async function ctxDelete() {
     const e = ctxMenu?.entry;
     closeCtx();
-    if (!e || e.is_dir || !desktopAvailable) return;
-    if (!confirm(`Delete “${e.name}”? This cannot be undone.`)) return;
+    if (!e || !desktopAvailable) return;
+    const label = e.is_dir ? "folder" : "file";
+    if (!confirm(`Delete ${label} “${e.name}”? This cannot be undone.`)) return;
     try {
       await deleteEntry(null, e.path);
       await reloadWorkspaceTree();
@@ -169,8 +171,8 @@
   async function ctxRename() {
     const e = ctxMenu?.entry;
     closeCtx();
-    if (!e || e.is_dir || !desktopAvailable) return;
-    const next = window.prompt("New file name", e.name);
+    if (!e || !desktopAvailable) return;
+    const next = window.prompt(e.is_dir ? "New folder name" : "New file name", e.name);
     if (!next || next === e.name) return;
     const parent = e.path.slice(0, -e.name.length).replace(/\/$/, "");
     const dest = parent ? `${parent}/${next}` : next;
@@ -181,6 +183,43 @@
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async function ctxReveal() {
+    const e = ctxMenu?.entry;
+    closeCtx();
+    if (!e || !desktopAvailable) return;
+    try {
+      // Folders open directly in the file manager; files are revealed/selected.
+      await revealInOs(e.path, !e.is_dir);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function ctxCopyPath() {
+    const e = ctxMenu?.entry;
+    closeCtx();
+    if (!e) return;
+    try {
+      await navigator.clipboard.writeText(e.path);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function ctxNewFile() {
+    const e = ctxMenu?.entry;
+    closeCtx();
+    if (!e || !e.is_dir) return;
+    openNamePrompt("file", normalizeFilePath(e.path));
+  }
+
+  function ctxNewFolder() {
+    const e = ctxMenu?.entry;
+    closeCtx();
+    if (!e || !e.is_dir) return;
+    openNamePrompt("folder", normalizeFilePath(e.path));
   }
 
   onMount(async () => {
@@ -348,8 +387,8 @@
     else void expandAllSubfolders();
   }
 
-  function openNamePrompt(kind: ExplorerNamePromptKind) {
-    const parent = targetDirectory();
+  function openNamePrompt(kind: ExplorerNamePromptKind, parentOverride?: string) {
+    const parent = parentOverride ?? targetDirectory();
     if (!parent || !desktopAvailable) return;
     namePrompt = { kind, parent };
   }
@@ -497,9 +536,18 @@
     >
       {#if !ctxMenu.entry.is_dir}
         <button type="button" class="ctx-item" onclick={() => void ctxRename()}>Rename…</button>
-        <button type="button" class="ctx-item danger" onclick={() => void ctxDelete()}>Delete</button>
+        <button type="button" class="ctx-item danger" onclick={() => void ctxDelete()}>Delete file</button>
+        <div class="ctx-sep" role="separator"></div>
+        <button type="button" class="ctx-item" onclick={() => void ctxReveal()}>Reveal in Finder</button>
+        <button type="button" class="ctx-item" onclick={() => void ctxCopyPath()}>Copy path</button>
       {:else}
-        <span class="ctx-muted">Folder actions — soon</span>
+        <button type="button" class="ctx-item" onclick={() => ctxNewFile()}>New file…</button>
+        <button type="button" class="ctx-item" onclick={() => void ctxRename()}>Rename…</button>
+        <button type="button" class="ctx-item" onclick={() => void ctxReveal()}>Open folder</button>
+        <button type="button" class="ctx-item" onclick={() => void ctxCopyPath()}>Copy path</button>
+        <div class="ctx-sep" role="separator"></div>
+        <button type="button" class="ctx-item" onclick={() => ctxNewFolder()}>New folder…</button>
+        <button type="button" class="ctx-item danger" onclick={() => void ctxDelete()}>Delete folder</button>
       {/if}
     </div>
   {/if}
@@ -693,9 +741,9 @@
     color: var(--destructive, #f87171);
   }
 
-  .ctx-muted {
-    display: block;
-    padding: 6px 10px;
-    color: var(--muted-foreground);
+  .ctx-sep {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--border, var(--sidebar-border));
   }
 </style>

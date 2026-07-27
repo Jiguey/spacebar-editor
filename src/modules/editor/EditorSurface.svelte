@@ -9,6 +9,7 @@
   import { syntaxTheme } from "$lib/stores/syntaxTheme";
   import { writeFile } from "$lib/ipc";
   import { loadCodeMirror, type CodeMirrorKit } from "$lib/editor/loadCodeMirror";
+  import { editorMinimap } from "$lib/editor/minimap";
   import { gitDiffHighlightExtension } from "$lib/editor/diffDecorations";
   import { formatWithPrettier } from "$lib/editor/formatDocument";
   import { EditorState } from "@codemirror/state";
@@ -38,6 +39,7 @@
   const wrapCompartment = new Compartment();
   const languageCompartment = new Compartment();
   const lspHoverCompartment = new Compartment();
+  const minimapCompartment = new Compartment();
   /** Debounce timer for LSP didChange notifications. */
   let lspChangeTimer: ReturnType<typeof setTimeout> | null = null;
   /** Currently active LSP file URI (for change/close notifications). */
@@ -100,6 +102,10 @@
 
   function wrapExtension(enabled: boolean) {
     return wrapCompartment.of(enabled ? EditorView.lineWrapping : []);
+  }
+
+  function minimapExtension(enabled: boolean) {
+    return minimapCompartment.of(enabled ? editorMinimap() : []);
   }
 
   function editorTheme(cm: CodeMirrorKit) {
@@ -173,6 +179,7 @@
         ...diffExt,
         cm.syntaxHighlighting,
         wrapExtension(wordWrap),
+        minimapExtension($settings.editor.minimap),
         lspHoverCompartment.of([]),
         cm.EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -215,6 +222,13 @@
     });
   }
 
+  function reconfigureMinimap(enabled: boolean) {
+    if (!editorView) return;
+    editorView.dispatch({
+      effects: minimapCompartment.reconfigure(enabled ? editorMinimap() : []),
+    });
+  }
+
   /** Re-highlight when syntax colors change in Settings (CSS vars update on :root). */
   $effect(() => {
     void $syntaxTheme;
@@ -225,6 +239,10 @@
 
   $effect(() => {
     reconfigureWrap($settings.editor.wordWrap);
+  });
+
+  $effect(() => {
+    reconfigureMinimap($settings.editor.minimap);
   });
 
   $effect(() => {
